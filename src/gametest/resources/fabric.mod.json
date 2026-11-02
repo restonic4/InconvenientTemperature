@@ -1,0 +1,13 @@
+{
+	"schemaVersion": 1,
+	"id": "inconvenient_temperature_test",
+	"version": "1.0.0",
+	"name": "Inconvenient Temperature game tests",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-gametest": ["com.restonic4.inconvenienttemperature.gametest.WorldGameTests"]
+	},
+	"depends": {
+		"inconvenient_temperature": "*"
+	}
+}
