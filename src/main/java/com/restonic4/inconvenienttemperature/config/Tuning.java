@@ -81,6 +81,8 @@ public final class Tuning {
     public static final float OCCLUSION_FLOOR = 0.1f;
     public static final float HEAT_SOURCE_CAP = 600f;
     public static final float ON_FIRE_HEAT = 300f;
+    public static final int LAVA_CARRY_BURN_TICKS = 61;
+    public static final int LAVA_CARRY_RELIGHT_AT_TICKS = 1;
     public static final float COLD_SOURCE_CAP = 150f;
     public static final float MIN_SIGNIFICANT_CONTRIBUTION = 0.25f;
 

@@ -122,6 +122,8 @@ public final class ThermalServer {
             return;
         }
 
+        CarriedLava.tick(player);
+
         float insulation = WoolInsulation.insulation(tickWool(player, runtime));
 
         int phase = player.tickCount + player.getId();

@@ -26,6 +26,10 @@ public final class ThermalEffects {
         return 1f / interval;
     }
 
+    public static boolean shouldIgnite(boolean carryingLava, boolean extinguished, int remainingFireTicks) {
+        return carryingLava && !extinguished && remainingFireTicks <= Tuning.LAVA_CARRY_RELIGHT_AT_TICKS;
+    }
+
     private static float ramp(float value, float from, float to) {
         return Math.max(0f, Math.min(1f, (value - from) / (to - from)));
     }

@@ -4,6 +4,7 @@ import com.restonic4.inconvenienttemperature.config.Tuning;
 import com.restonic4.inconvenienttemperature.core.HeatFalloff;
 import com.restonic4.inconvenienttemperature.core.Room;
 import com.restonic4.inconvenienttemperature.core.RoomAnalyzer;
+import com.restonic4.inconvenienttemperature.server.CarriedLava;
 import com.restonic4.inconvenienttemperature.world.HeatSourceRegistry;
 import com.restonic4.inconvenienttemperature.world.HeldSources;
 import com.restonic4.inconvenienttemperature.world.LevelRoomWorld;
@@ -14,6 +15,9 @@ import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.state.BlockState;
@@ -77,6 +81,45 @@ public class WorldGameTests implements FabricGameTest {
         player.setItemInHand(net.minecraft.world.InteractionHand.OFF_HAND, net.minecraft.world.item.ItemStack.EMPTY);
         HeldSources lantern = HeldSources.of(player);
         expect("a held lantern is not in the held tag", lantern.roomHeat() == 0f, lantern.toString());
+        finish(helper);
+    }
+
+    @GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+    public void carriedLava(GameTestHelper helper) {
+        var player = helper.makeMockServerPlayerInLevel();
+        player.setGameMode(GameType.SURVIVAL);
+        CarriedLava.tick(player);
+        expect("an empty inventory does not burn", !player.isOnFire(), "fire ticks " + player.getRemainingFireTicks());
+
+        player.getInventory().setItem(5, new ItemStack(Items.WATER_BUCKET));
+        CarriedLava.tick(player);
+        expect("a water bucket does not burn", !player.isOnFire(), "fire ticks " + player.getRemainingFireTicks());
+
+        player.getInventory().setItem(5, new ItemStack(Items.LAVA_BUCKET));
+        CarriedLava.tick(player);
+        expect("a lava bucket in the inventory sets the player on fire", player.isOnFire(), "fire ticks " + player.getRemainingFireTicks());
+        expect("the flame lasts the configured ticks", player.getRemainingFireTicks() == Tuning.LAVA_CARRY_BURN_TICKS, "fire ticks " + player.getRemainingFireTicks());
+
+        player.setRemainingFireTicks(Tuning.LAVA_CARRY_RELIGHT_AT_TICKS + 1);
+        CarriedLava.tick(player);
+        expect("a flame with time left is not reset", player.getRemainingFireTicks() == Tuning.LAVA_CARRY_RELIGHT_AT_TICKS + 1, "fire ticks " + player.getRemainingFireTicks());
+
+        player.setRemainingFireTicks(Tuning.LAVA_CARRY_RELIGHT_AT_TICKS);
+        CarriedLava.tick(player);
+        expect("a flame on its last tick is topped up", player.getRemainingFireTicks() == Tuning.LAVA_CARRY_BURN_TICKS, "fire ticks " + player.getRemainingFireTicks());
+
+        player.getInventory().setItem(5, ItemStack.EMPTY);
+        player.clearFire();
+        player.getInventory().offhand.set(0, new ItemStack(Items.LAVA_BUCKET));
+        CarriedLava.tick(player);
+        expect("the off hand counts", player.isOnFire(), "fire ticks " + player.getRemainingFireTicks());
+
+        player.getInventory().offhand.set(0, ItemStack.EMPTY);
+        player.clearFire();
+        player.setGameMode(GameType.CREATIVE);
+        player.getInventory().setItem(5, new ItemStack(Items.LAVA_BUCKET));
+        CarriedLava.tick(player);
+        expect("vanilla caps a creative player's fire at one tick", player.getRemainingFireTicks() <= 1, "fire ticks " + player.getRemainingFireTicks());
         finish(helper);
     }
 
