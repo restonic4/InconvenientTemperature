@@ -1,6 +1,7 @@
 package com.restonic4.inconvenienttemperature.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.restonic4.inconvenienttemperature.config.Tuning;
@@ -71,6 +72,17 @@ class RoomTest {
         Room room = RoomAnalyzer.analyze(world, 2, 3, 2);
         assertEquals(76, room.cells());
         assertTrue(room.openness() < 0.3f);
+    }
+
+    @Test
+    void anOpenFieldCellIsOutdoorButAHutCellIsNot() {
+        assertTrue(RoomAnalyzer.isOutdoor(new VoxelWorld(0), 2, 1, 2));
+        assertFalse(RoomAnalyzer.isOutdoor(hut(), 2, 1, 2));
+    }
+
+    @Test
+    void theCellUnderARoofHoleIsNotOutdoor() {
+        assertFalse(RoomAnalyzer.isOutdoor(hut().set(2, 4, 2, Cell.OPEN), 2, 3, 2));
     }
 
     @Test

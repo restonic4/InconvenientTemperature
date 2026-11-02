@@ -3,8 +3,10 @@ package com.restonic4.inconvenienttemperature.client.view;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.restonic4.inconvenienttemperature.core.RoomListener;
+import com.restonic4.inconvenienttemperature.core.SourceMark;
 import com.restonic4.inconvenienttemperature.core.ViewMode;
 import java.util.Comparator;
+import java.util.List;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -35,22 +37,23 @@ final class HeatViewRenderer {
         MultiBufferSource buffers = context.consumers();
         Vec3 camera = context.camera().getPosition();
         RoomSnapshot room = HeatView.room();
+        boolean showRoom = !room.outdoors;
 
         if (mode.heat()) {
             for (HeatMap.Tile tile : HeatView.map().tiles()) {
                 floorTile(pose, buffers, camera, tile.x(), tile.y(), tile.z(), tile.argb());
             }
-        } else {
+        } else if (showRoom) {
             for (var floor : room.floors) {
                 floorTile(pose, buffers, camera, floor.getX(), floor.getY(), floor.getZ(), ROOM_FLOOR);
             }
         }
-        if (mode.rooms()) {
+        if (mode.rooms() && showRoom) {
             for (RoomSnapshot.Leak leak : room.leaks) {
                 plate(pose, buffers, camera, leak, leak.kind() == RoomListener.Face.OUTLET ? OUTLET : LEAKY);
             }
         }
-        sources(pose, buffers, camera, room, mode.rooms());
+        sources(pose, buffers, camera, HeatView.marks());
         feetLabel(context, pose, buffers);
     }
 
@@ -106,28 +109,42 @@ final class HeatViewRenderer {
         box(pose, buffers, camera, x1, y1, z1, x2, y2, z2, argb);
     }
 
-    private static void sources(
-		PoseStack pose, MultiBufferSource buffers, Vec3 camera,
-		RoomSnapshot room, boolean labels
-	) {
+    private static void sources(PoseStack pose, MultiBufferSource buffers, Vec3 camera, List<SourceMark> marks) {
         VertexConsumer lines = buffers.getBuffer(RenderType.lines());
-        for (RoomSnapshot.Source source : room.sources) {
-            boolean heat = source.power() > 0f;
+        for (SourceMark mark : marks) {
+            boolean heat = mark.heating();
             LevelRenderer.renderLineBox(
-				pose, lines,
-				source.x() - camera.x, source.y() - camera.y, source.z() - camera.z,
-				source.x() + 1 - camera.x, source.y() + 1 - camera.y, source.z() + 1 - camera.z,
-				heat ? 1f : 0.3f, heat ? 0.85f : 0.9f, heat ? 0.1f : 1f, 1f
-			);
+                pose, lines,
+                mark.x() - camera.x, mark.y() - camera.y, mark.z() - camera.z,
+                mark.x() + 1 - camera.x, mark.y() + 1 - camera.y, mark.z() + 1 - camera.z,
+                heat ? 1f : 0.3f, heat ? 0.85f : 0.9f, heat ? 0.1f : 1f, 1f
+            );
         }
-        if (!labels) return;
 
-        room.sources.stream()
-                .filter(s -> camera.distanceToSqr(s.x() + 0.5, s.y() + 0.5, s.z() + 0.5) < TEXT_RANGE * TEXT_RANGE)
-                .sorted(Comparator.comparingDouble(s -> camera.distanceToSqr(s.x() + 0.5, s.y() + 0.5, s.z() + 0.5)))
-                .limit(TEXT_LIMIT)
-                .forEach(s -> DebugRenderer.renderFloatingText(pose, buffers,
-                        String.format("%+.1f", s.power()), s.x() + 0.5, s.y() + 1.25, s.z() + 0.5, 0xFFFFFF));
+        marks.stream()
+            .filter(mark -> distanceSquared(camera, mark) < TEXT_RANGE * TEXT_RANGE)
+            .sorted(Comparator.comparingDouble(mark -> distanceSquared(camera, mark)))
+            .limit(TEXT_LIMIT)
+            .forEach(mark -> label(pose, buffers, mark));
+    }
+
+    private static void label(PoseStack pose, MultiBufferSource buffers, SourceMark mark) {
+        double height = mark.y() + 1.25;
+        if (mark.hasRadiant()) {
+            text(pose, buffers, mark, String.format("%+.1f (%+.1f at you)", mark.radiant(), mark.delivered()), height);
+            height += 0.25;
+        }
+        if (mark.hasRoom()) {
+            text(pose, buffers, mark, String.format("room %+.1f", mark.room()), height);
+        }
+    }
+
+    private static void text(PoseStack pose, MultiBufferSource buffers, SourceMark mark, String line, double height) {
+        DebugRenderer.renderFloatingText(pose, buffers, line, mark.x() + 0.5, height, mark.z() + 0.5, 0xFFFFFF);
+    }
+
+    private static double distanceSquared(Vec3 camera, SourceMark mark) {
+        return camera.distanceToSqr(mark.x() + 0.5, mark.y() + 0.5, mark.z() + 0.5);
     }
 
     private static void box(

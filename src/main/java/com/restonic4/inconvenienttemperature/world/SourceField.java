@@ -4,7 +4,9 @@ import com.restonic4.inconvenienttemperature.core.HeatFalloff;
 import com.restonic4.inconvenienttemperature.core.Occlusion;
 import com.restonic4.inconvenienttemperature.core.SourceAccumulator;
 import com.restonic4.inconvenienttemperature.config.Tuning;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.world.level.Level;
@@ -15,6 +17,8 @@ import net.minecraft.world.phys.Vec3;
 
 public final class SourceField {
     public record Evaluation(float heat, float cold) {}
+
+    public record Contribution(int x, int y, int z, float strength, float delivered) {}
 
     private int[] xs = new int[64];
     private int[] ys = new int[64];
@@ -82,18 +86,41 @@ public final class SourceField {
         BlockPos.MutableBlockPos target = new BlockPos.MutableBlockPos();
         BlockPos.MutableBlockPos scratch = new BlockPos.MutableBlockPos();
         for (int i = 0; i < size; i++) {
-            double dx = xs[i] + 0.5 - center.x;
-            double dy = ys[i] + 0.5 - center.y;
-            double dz = zs[i] + 0.5 - center.z;
-            float distance = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-            float open = HeatFalloff.contribution(strengths[i], distance, 1f);
-            if (Math.abs(open) < Tuning.MIN_SIGNIFICANT_CONTRIBUTION) continue;
-
-            target.set(xs[i], ys[i], zs[i]);
-            float transmission = Occlusion.transmission(thickness(level, eye, target, scratch));
-            sums.add(groups[i], open * transmission);
+            float delivered = delivered(i, level, center, eye, target, scratch);
+            if (delivered != 0f) {
+                sums.add(groups[i], delivered);
+            }
         }
         return new Evaluation(sums.heat(), sums.cold());
+    }
+
+    public List<Contribution> contributions(Level level, Vec3 center, Vec3 eye) {
+        List<Contribution> out = new ArrayList<>();
+        BlockPos.MutableBlockPos target = new BlockPos.MutableBlockPos();
+        BlockPos.MutableBlockPos scratch = new BlockPos.MutableBlockPos();
+        for (int i = 0; i < size; i++) {
+            float delivered = delivered(i, level, center, eye, target, scratch);
+            if (delivered != 0f) {
+                out.add(new Contribution(xs[i], ys[i], zs[i], strengths[i], delivered));
+            }
+        }
+        return out;
+    }
+
+    private float delivered(
+        int index, Level level, Vec3 center, Vec3 eye,
+        BlockPos.MutableBlockPos target, BlockPos.MutableBlockPos scratch
+    ) {
+        double dx = xs[index] + 0.5 - center.x;
+        double dy = ys[index] + 0.5 - center.y;
+        double dz = zs[index] + 0.5 - center.z;
+        float distance = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+        float open = HeatFalloff.contribution(strengths[index], distance, 1f);
+        if (Math.abs(open) < Tuning.MIN_SIGNIFICANT_CONTRIBUTION) return 0f;
+
+        target.set(xs[index], ys[index], zs[index]);
+
+        return open * Occlusion.transmission(thickness(level, eye, target, scratch));
     }
 
     private void collectSection(

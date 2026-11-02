@@ -1,10 +1,13 @@
 package com.restonic4.inconvenienttemperature.gametest;
 
+import com.restonic4.inconvenienttemperature.config.Tuning;
+import com.restonic4.inconvenienttemperature.core.HeatFalloff;
 import com.restonic4.inconvenienttemperature.core.Room;
 import com.restonic4.inconvenienttemperature.core.RoomAnalyzer;
 import com.restonic4.inconvenienttemperature.world.HeatSourceRegistry;
 import com.restonic4.inconvenienttemperature.world.HeldSources;
 import com.restonic4.inconvenienttemperature.world.LevelRoomWorld;
+import com.restonic4.inconvenienttemperature.world.SourceField;
 import java.util.ArrayList;
 import java.util.List;
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
@@ -16,6 +19,7 @@ import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
+import net.minecraft.world.phys.Vec3;
 
 public class WorldGameTests implements FabricGameTest {
     private static final BlockState WALL = Blocks.STONE_BRICKS.defaultBlockState();
@@ -126,6 +130,47 @@ public class WorldGameTests implements FabricGameTest {
         Room lava = analyze(helper, 3, 2, 4);
         expect("four exposed lava blocks add their room power", lava.heatPower() == 240f, "power " + lava.heatPower());
         expect("a lava room is deadly hot", lava.heatGain() > 70f, "gain " + lava.heatGain());
+        finish(helper);
+    }
+
+    @GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+    public void outdoorFurnace(GameTestHelper helper) {
+        buildHut(helper, false);
+        for (int x = 0; x <= 6; x++) {
+            for (int z = 0; z <= 6; z++) {
+                for (int y = 1; y <= 5; y++) {
+                    helper.setBlock(new BlockPos(x, y, z), Blocks.AIR);
+                }
+            }
+        }
+        BlockPos furnace = new BlockPos(3, 1, 3);
+        helper.setBlock(furnace, Blocks.FURNACE.defaultBlockState().setValue(BlockStateProperties.LIT, true));
+        Vec3 body = helper.absoluteVec(new Vec3(5.5, 1.5, 3.5));
+        Vec3 eye = body.add(0.0, 0.62, 0.0);
+        BlockPos furnaceAt = helper.absolutePos(furnace);
+
+        SourceField field = SourceField.collect(helper.getLevel(), body, Tuning.SCAN_RADIUS);
+        List<SourceField.Contribution> marks = field.contributions(helper.getLevel(), body, eye);
+        expect("one lit furnace gives one mark", marks.size() == 1, marks.toString());
+        if (marks.size() == 1) {
+            SourceField.Contribution mark = marks.get(0);
+            float expected = HeatFalloff.contribution(14f, 2f, 1f);
+            expect("mark is on the furnace block", mark.x() == furnaceAt.getX() && mark.y() == furnaceAt.getY() && mark.z() == furnaceAt.getZ(), mark.toString());
+            expect("mark carries the radiant strength", mark.strength() == 14f, mark.toString());
+            expect("mark delivers the falloff value in the open", Math.abs(mark.delivered() - expected) < 1e-3f, mark + " wanted " + expected);
+            float heat = field.evaluate(helper.getLevel(), body, eye).heat();
+            expect("marks add up to what actually heats the player", Math.abs(heat - mark.delivered()) < 1e-3f, heat + " vs " + mark.delivered());
+        }
+        LevelRoomWorld world = new LevelRoomWorld(helper.getLevel());
+        expect("open yard cell is outdoor", RoomAnalyzer.isOutdoor(world, furnaceAt.getX() + 2, furnaceAt.getY(), furnaceAt.getZ()), "not outdoor");
+
+        helper.setBlock(furnace, Blocks.FURNACE);
+        SourceField unlit = SourceField.collect(helper.getLevel(), body, Tuning.SCAN_RADIUS);
+        expect("an unlit furnace gives no mark", unlit.contributions(helper.getLevel(), body, eye).isEmpty(), "marks present");
+
+        buildHut(helper, true);
+        BlockPos inside = helper.absolutePos(new BlockPos(3, 2, 3));
+        expect("a sealed hut cell is not outdoor", !RoomAnalyzer.isOutdoor(world, inside.getX(), inside.getY(), inside.getZ()), "outdoor");
         finish(helper);
     }
 

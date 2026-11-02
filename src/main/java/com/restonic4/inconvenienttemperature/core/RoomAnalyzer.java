@@ -111,6 +111,10 @@ public final class RoomAnalyzer {
         return new Room(head, open, leaky, walls, power[0], power[1], truncated);
     }
 
+    public static boolean isOutdoor(RoomWorld world, int x, int y, int z) {
+        return isOutdoor(world, new RoomWorld.Sample(), x, y, z);
+    }
+
     private static boolean isOutdoor(RoomWorld world, RoomWorld.Sample scratch, int x, int y, int z) {
         if (!world.skyExposed(x, y, z)) return false;
 

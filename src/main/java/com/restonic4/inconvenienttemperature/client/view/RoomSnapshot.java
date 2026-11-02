@@ -18,16 +18,21 @@ final class RoomSnapshot {
 
     record Source(int x, int y, int z, float power) { }
 
-    static final RoomSnapshot EMPTY = new RoomSnapshot(Room.NONE, Set.of(), List.of(), List.of(), List.of());
+    static final RoomSnapshot EMPTY = new RoomSnapshot(Room.NONE, false, Set.of(), List.of(), List.of(), List.of());
 
     final Room room;
+    final boolean outdoors;
     final Set<Long> cells;
     final List<BlockPos> floors;
     final List<Leak> leaks;
     final List<Source> sources;
 
-    private RoomSnapshot(Room room, Set<Long> cells, List<BlockPos> floors, List<Leak> leaks, List<Source> sources) {
+    private RoomSnapshot(
+        Room room, boolean outdoors, Set<Long> cells,
+        List<BlockPos> floors, List<Leak> leaks, List<Source> sources
+    ) {
         this.room = room;
+        this.outdoors = outdoors;
         this.cells = cells;
         this.floors = floors;
         this.leaks = leaks;
@@ -40,12 +45,16 @@ final class RoomSnapshot {
         LevelRoomWorld world = new LevelRoomWorld(level);
         Recorder recorder = new Recorder(world);
         BlockPos eyePos = BlockPos.containing(eye);
-        Room room = RoomAnalyzer.analyze(world, eyePos.getX(), eyePos.getY(), eyePos.getZ(), recorder);
+        BlockPos start = eyePos;
+        Room room = RoomAnalyzer.analyze(world, start.getX(), start.getY(), start.getZ(), recorder);
         if (room == Room.NONE) {
             recorder = new Recorder(world);
-            room = RoomAnalyzer.analyze(world, feet.getX(), feet.getY(), feet.getZ(), recorder);
+            start = feet;
+            room = RoomAnalyzer.analyze(world, start.getX(), start.getY(), start.getZ(), recorder);
         }
-        return new RoomSnapshot(room, recorder.cells, recorder.floors, recorder.leaks, recorder.sources);
+        boolean outdoors = room != Room.NONE && RoomAnalyzer.isOutdoor(world, start.getX(), start.getY(), start.getZ());
+
+        return new RoomSnapshot(room, outdoors, recorder.cells, recorder.floors, recorder.leaks, recorder.sources);
     }
 
     private static final class Recorder implements RoomListener {

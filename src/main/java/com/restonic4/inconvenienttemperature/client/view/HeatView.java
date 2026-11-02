@@ -2,10 +2,13 @@ package com.restonic4.inconvenienttemperature.client.view;
 
 import com.restonic4.inconvenienttemperature.config.Tuning;
 import com.restonic4.inconvenienttemperature.core.HeatFalloff;
+import com.restonic4.inconvenienttemperature.core.SourceMark;
+import com.restonic4.inconvenienttemperature.core.SourceMarks;
 import com.restonic4.inconvenienttemperature.core.ViewMode;
 import com.restonic4.inconvenienttemperature.world.HeatSourceRegistry;
 import com.restonic4.inconvenienttemperature.world.HeldSources;
 import com.restonic4.inconvenienttemperature.world.SourceField;
+import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
@@ -22,11 +25,13 @@ public final class HeatView {
     private static final int MAP_REFRESH_TICKS = 40;
     private static final int ROOM_REFRESH_TICKS = 10;
     private static final double MAP_MOVE_LIMIT = 4.0;
+    private static final int RADIANT_MARK_LIMIT = 24;
 
     private static ViewMode mode = ViewMode.OFF;
     private static boolean unavailable;
     private static RoomSnapshot room = RoomSnapshot.EMPTY;
     private static Readout readout = Readout.NONE;
+    private static List<SourceMark> marks = List.of();
     private static HeatMap map = HeatMap.EMPTY;
     private static HeatMapJob job;
     private static int ticks;
@@ -64,6 +69,10 @@ public final class HeatView {
         return readout;
     }
 
+    static List<SourceMark> marks() {
+        return marks;
+    }
+
     static HeatMap map() {
         return map;
     }
@@ -79,7 +88,7 @@ public final class HeatView {
         ticks++;
         if (ticks % ROOM_REFRESH_TICKS == 1) {
             room = RoomSnapshot.capture(level, player.getEyePosition(), player.blockPosition());
-            readout = readoutAt(level, player, room);
+            refresh(level, player, room);
         }
         if (mode.heat()) {
             stepMap(level, player);
@@ -89,6 +98,7 @@ public final class HeatView {
     private static void reset() {
         room = RoomSnapshot.EMPTY;
         readout = Readout.NONE;
+        marks = List.of();
         map = HeatMap.EMPTY;
         job = null;
         ticks = 0;
@@ -113,9 +123,30 @@ public final class HeatView {
         }
     }
 
-    private static Readout readoutAt(Level level, LocalPlayer player, RoomSnapshot snapshot) {
+    private static void refresh(Level level, LocalPlayer player, RoomSnapshot snapshot) {
         Vec3 center = player.getBoundingBox().getCenter();
         SourceField field = SourceField.collect(level, center, Tuning.SCAN_RADIUS);
+        readout = readoutAt(level, player, snapshot, field, center);
+        marks = SourceMarks.merge(roomMarks(snapshot), radiantMarks(level, player, field, center), RADIANT_MARK_LIMIT);
+    }
+
+    private static List<SourceMark> roomMarks(RoomSnapshot snapshot) {
+        if (!mode.rooms() || snapshot.outdoors) return List.of();
+
+        return snapshot.sources.stream()
+            .map(source -> new SourceMark(source.x(), source.y(), source.z(), 0f, 0f, source.power()))
+            .toList();
+    }
+
+    private static List<SourceMark> radiantMarks(Level level, LocalPlayer player, SourceField field, Vec3 center) {
+        if (!mode.heat()) return List.of();
+
+        return field.contributions(level, center, player.getEyePosition()).stream()
+            .map(c -> new SourceMark(c.x(), c.y(), c.z(), c.strength(), c.delivered(), 0f))
+            .toList();
+    }
+
+    private static Readout readoutAt(Level level, LocalPlayer player, RoomSnapshot snapshot, SourceField field, Vec3 center) {
         SourceField.Evaluation nearby = field.evaluate(level, center, player.getEyePosition());
         HeldSources held = HeldSources.of(player);
         float retention = snapshot.room.retention();
