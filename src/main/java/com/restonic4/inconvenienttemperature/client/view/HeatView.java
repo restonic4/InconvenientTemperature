@@ -1,7 +1,8 @@
 package com.restonic4.inconvenienttemperature.client.view;
 
-import com.restonic4.inconvenienttemperature.core.HeatFalloff;
 import com.restonic4.inconvenienttemperature.config.Tuning;
+import com.restonic4.inconvenienttemperature.core.HeatFalloff;
+import com.restonic4.inconvenienttemperature.core.ViewMode;
 import com.restonic4.inconvenienttemperature.world.HeatSourceRegistry;
 import com.restonic4.inconvenienttemperature.world.HeldSources;
 import com.restonic4.inconvenienttemperature.world.SourceField;
@@ -13,25 +14,6 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
 public final class HeatView {
-    public enum Mode {
-        OFF,
-        ROOM,
-        HEAT,
-        BOTH;
-
-        public Mode next() {
-            return values()[(ordinal() + 1) % values().length];
-        }
-
-        boolean rooms() {
-            return this == ROOM || this == BOTH;
-        }
-
-        boolean heat() {
-            return this == HEAT || this == BOTH;
-        }
-    }
-
     record Readout(float nearbyHeat, float nearbyCold, float roomHeat, float roomCold, float total) {
         static final Readout NONE = new Readout(0f, 0f, 0f, 0f, 0f);
     }
@@ -41,7 +23,7 @@ public final class HeatView {
     private static final int ROOM_REFRESH_TICKS = 10;
     private static final double MAP_MOVE_LIMIT = 4.0;
 
-    private static Mode mode = Mode.OFF;
+    private static ViewMode mode = ViewMode.OFF;
     private static boolean unavailable;
     private static RoomSnapshot room = RoomSnapshot.EMPTY;
     private static Readout readout = Readout.NONE;
@@ -52,17 +34,17 @@ public final class HeatView {
 
     private HeatView() {}
 
-    public static Mode mode() {
+    public static ViewMode mode() {
         return mode;
     }
 
-    public static void setMode(Mode value) {
+    public static void setMode(ViewMode value) {
         mode = value;
         reset();
         LocalPlayer player = Minecraft.getInstance().player;
         if (player != null) {
-            String note = value != Mode.OFF && HeatSourceRegistry.isEmpty() ? " (no heat source data on this client)" : "";
-            player.displayClientMessage(Component.literal("Heat view: " + value.name().toLowerCase() + note), true);
+            String note = value != ViewMode.OFF && HeatSourceRegistry.isEmpty() ? " (no heat source data on this client)" : "";
+            player.displayClientMessage(Component.literal("Heat view: " + value.commandName() + note), true);
         }
     }
 
@@ -88,7 +70,7 @@ public final class HeatView {
 
     public static void tick(Minecraft minecraft) {
         LocalPlayer player = minecraft.player;
-        if (mode == Mode.OFF || player == null || minecraft.level == null) return;
+        if (mode == ViewMode.OFF || player == null || minecraft.level == null) return;
 
         unavailable = HeatSourceRegistry.isEmpty();
         if (unavailable) return;

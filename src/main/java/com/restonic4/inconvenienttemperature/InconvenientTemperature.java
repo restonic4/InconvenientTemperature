@@ -1,7 +1,8 @@
 package com.restonic4.inconvenienttemperature;
 
 import com.restonic4.inconvenienttemperature.item.ModItems;
-import com.restonic4.inconvenienttemperature.server.DebugCommand;
+import com.restonic4.inconvenienttemperature.network.ModNetworking;
+import com.restonic4.inconvenienttemperature.server.ThermalCommand;
 import com.restonic4.inconvenienttemperature.server.ThermalServer;
 import com.restonic4.inconvenienttemperature.world.HeatSourceLoader;
 import net.fabricmc.api.ModInitializer;
@@ -19,8 +20,9 @@ public class InconvenientTemperature implements ModInitializer {
         ModAttachments.register();
         ModEffects.register();
         ModItems.register();
+        ModNetworking.register();
         HeatSourceLoader.register();
         ThermalServer.register();
-        DebugCommand.register();
+        ThermalCommand.register();
     }
 }

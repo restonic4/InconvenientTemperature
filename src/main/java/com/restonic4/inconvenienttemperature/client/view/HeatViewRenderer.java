@@ -3,6 +3,7 @@ package com.restonic4.inconvenienttemperature.client.view;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.restonic4.inconvenienttemperature.core.RoomListener;
+import com.restonic4.inconvenienttemperature.core.ViewMode;
 import java.util.Comparator;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.Minecraft;
@@ -27,8 +28,8 @@ final class HeatViewRenderer {
     private HeatViewRenderer() {}
 
     static void render(WorldRenderContext context) {
-        HeatView.Mode mode = HeatView.mode();
-        if (mode == HeatView.Mode.OFF || HeatView.unavailable() || context.consumers() == null) return;
+        ViewMode mode = HeatView.mode();
+        if (mode == ViewMode.OFF || HeatView.unavailable() || context.consumers() == null) return;
 
         PoseStack pose = context.matrixStack();
         MultiBufferSource buffers = context.consumers();
