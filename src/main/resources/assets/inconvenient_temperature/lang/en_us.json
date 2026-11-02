@@ -1,0 +1,10 @@
+{
+	"item.inconvenient_temperature.wool_helmet": "Wool Cap",
+	"item.inconvenient_temperature.wool_chestplate": "Wool Tunic",
+	"item.inconvenient_temperature.wool_leggings": "Wool Pants",
+	"item.inconvenient_temperature.wool_boots": "Wool Boots",
+	"death.attack.inconvenient_temperature.heatstroke": "%1$s died of heatstroke",
+	"effect.inconvenient_temperature.wet": "Wet",
+	"key.inconvenient_temperature.heat_view": "Cycle heat view",
+	"key.categories.inconvenient_temperature": "Inconvenient Temperature"
+}

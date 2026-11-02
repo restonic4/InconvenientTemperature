@@ -1,0 +1,90 @@
+{
+	"entries": [
+		{
+			"blocks": [
+				"minecraft:fire"
+			],
+			"strength": 20,
+			"room_power": 25
+		},
+		{
+			"blocks": [
+				"minecraft:soul_fire"
+			],
+			"strength": 10,
+			"room_power": 12
+		},
+		{
+			"blocks": [
+				"minecraft:campfire"
+			],
+			"state": {
+				"lit": "true"
+			},
+			"strength": 75,
+			"room_power": 40
+		},
+		{
+			"blocks": [
+				"minecraft:soul_campfire"
+			],
+			"state": {
+				"lit": "true"
+			},
+			"strength": 38,
+			"room_power": 20
+		},
+		{
+			"blocks": [
+				"minecraft:torch",
+				"minecraft:wall_torch"
+			],
+			"strength": 5,
+			"room_power": 6
+		},
+		{
+			"blocks": [
+				"minecraft:soul_torch",
+				"minecraft:soul_wall_torch"
+			],
+			"strength": 2.5,
+			"room_power": 3
+		},
+		{
+			"blocks": [
+				"minecraft:redstone_torch",
+				"minecraft:redstone_wall_torch"
+			],
+			"state": {
+				"lit": "true"
+			},
+			"strength": 1,
+			"room_power": 1.2
+		},
+		{
+			"blocks": [
+				"minecraft:lantern"
+			],
+			"strength": 6,
+			"room_power": 7
+		},
+		{
+			"blocks": [
+				"minecraft:soul_lantern"
+			],
+			"strength": 3,
+			"room_power": 3.5
+		},
+		{
+			"blocks": [
+				"#minecraft:candles",
+				"#minecraft:candle_cakes"
+			],
+			"state": {
+				"lit": "true"
+			},
+			"strength": 2,
+			"room_power": 2.5
+		}
+	]
+}

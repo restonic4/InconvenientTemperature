@@ -1,0 +1,23 @@
+{
+	"entries": [
+		{
+			"blocks": [
+				"minecraft:furnace",
+				"minecraft:blast_furnace",
+				"minecraft:smoker"
+			],
+			"state": {
+				"lit": "true"
+			},
+			"strength": 14,
+			"room_power": 20
+		},
+		{
+			"blocks": [
+				"minecraft:magma_block"
+			],
+			"strength": 6,
+			"room_power": 30
+		}
+	]
+}

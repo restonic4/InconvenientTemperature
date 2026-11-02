@@ -1,0 +1,20 @@
+{
+	"entries": [
+		{
+			"fluids": [
+				"#minecraft:lava",
+				"minecraft:lava",
+				"minecraft:flowing_lava"
+			],
+			"strength": 16,
+			"room_power": 60
+		},
+		{
+			"blocks": [
+				"minecraft:lava_cauldron"
+			],
+			"strength": 16,
+			"room_power": 60
+		}
+	]
+}

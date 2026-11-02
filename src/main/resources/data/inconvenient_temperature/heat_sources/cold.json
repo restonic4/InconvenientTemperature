@@ -1,0 +1,53 @@
+{
+	"entries": [
+		{
+			"blocks": [
+				"minecraft:ice",
+				"minecraft:frosted_ice"
+			],
+			"strength": -1.5,
+			"room_power": -1.5,
+			"cap": 80
+		},
+		{
+			"blocks": [
+				"minecraft:packed_ice"
+			],
+			"strength": -2.5,
+			"room_power": -2.5,
+			"cap": 90
+		},
+		{
+			"blocks": [
+				"minecraft:blue_ice"
+			],
+			"strength": -4,
+			"room_power": -4,
+			"cap": 100
+		},
+		{
+			"blocks": [
+				"minecraft:snow_block"
+			],
+			"strength": -1,
+			"room_power": 0,
+			"cap": 25
+		},
+		{
+			"blocks": [
+				"minecraft:snow"
+			],
+			"strength": -0.3,
+			"room_power": 0,
+			"cap": 35
+		},
+		{
+			"blocks": [
+				"minecraft:powder_snow"
+			],
+			"strength": -1.2,
+			"room_power": -1,
+			"cap": 30
+		}
+	]
+}

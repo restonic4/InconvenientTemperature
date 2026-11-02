@@ -1,0 +1,147 @@
+package com.restonic4.inconvenienttemperature.client.view;
+
+import com.restonic4.inconvenienttemperature.core.HeatFalloff;
+import com.restonic4.inconvenienttemperature.config.Tuning;
+import com.restonic4.inconvenienttemperature.world.HeatSourceRegistry;
+import com.restonic4.inconvenienttemperature.world.HeldSources;
+import com.restonic4.inconvenienttemperature.world.SourceField;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
+
+public final class HeatView {
+    public enum Mode {
+        OFF,
+        ROOM,
+        HEAT,
+        BOTH;
+
+        public Mode next() {
+            return values()[(ordinal() + 1) % values().length];
+        }
+
+        boolean rooms() {
+            return this == ROOM || this == BOTH;
+        }
+
+        boolean heat() {
+            return this == HEAT || this == BOTH;
+        }
+    }
+
+    record Readout(float nearbyHeat, float nearbyCold, float roomHeat, float roomCold, float total) {
+        static final Readout NONE = new Readout(0f, 0f, 0f, 0f, 0f);
+    }
+
+    private static final long MAP_BUDGET_NANOS = 3_000_000L;
+    private static final int MAP_REFRESH_TICKS = 40;
+    private static final int ROOM_REFRESH_TICKS = 10;
+    private static final double MAP_MOVE_LIMIT = 4.0;
+
+    private static Mode mode = Mode.OFF;
+    private static boolean unavailable;
+    private static RoomSnapshot room = RoomSnapshot.EMPTY;
+    private static Readout readout = Readout.NONE;
+    private static HeatMap map = HeatMap.EMPTY;
+    private static HeatMapJob job;
+    private static int ticks;
+    private static int mapStartedAt;
+
+    private HeatView() {}
+
+    public static Mode mode() {
+        return mode;
+    }
+
+    public static void setMode(Mode value) {
+        mode = value;
+        reset();
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (player != null) {
+            String note = value != Mode.OFF && HeatSourceRegistry.isEmpty() ? " (no heat source data on this client)" : "";
+            player.displayClientMessage(Component.literal("Heat view: " + value.name().toLowerCase() + note), true);
+        }
+    }
+
+    public static void cycle() {
+        setMode(mode.next());
+    }
+
+    static boolean unavailable() {
+        return unavailable;
+    }
+
+    static RoomSnapshot room() {
+        return room;
+    }
+
+    static Readout readout() {
+        return readout;
+    }
+
+    static HeatMap map() {
+        return map;
+    }
+
+    public static void tick(Minecraft minecraft) {
+        LocalPlayer player = minecraft.player;
+        if (mode == Mode.OFF || player == null || minecraft.level == null) return;
+
+        unavailable = HeatSourceRegistry.isEmpty();
+        if (unavailable) return;
+
+        Level level = minecraft.level;
+        ticks++;
+        if (ticks % ROOM_REFRESH_TICKS == 1) {
+            room = RoomSnapshot.capture(level, player.getEyePosition(), player.blockPosition());
+            readout = readoutAt(level, player, room);
+        }
+        if (mode.heat()) {
+            stepMap(level, player);
+        }
+    }
+
+    private static void reset() {
+        room = RoomSnapshot.EMPTY;
+        readout = Readout.NONE;
+        map = HeatMap.EMPTY;
+        job = null;
+        ticks = 0;
+        mapStartedAt = 0;
+    }
+
+    private static void stepMap(Level level, LocalPlayer player) {
+        if (job == null) {
+            boolean stale = ticks - mapStartedAt >= MAP_REFRESH_TICKS;
+            if (stale || map == HeatMap.EMPTY) {
+                job = new HeatMapJob(level, player.position(), room, HeldSources.of(player));
+                mapStartedAt = ticks;
+            }
+        }
+        if (job != null && job.step(MAP_BUDGET_NANOS)) {
+            map = job.result();
+            BlockPos origin = job.origin();
+            job = null;
+            if (player.position().distanceToSqr(origin.getX() + 0.5, origin.getY(), origin.getZ() + 0.5) > MAP_MOVE_LIMIT * MAP_MOVE_LIMIT) {
+                mapStartedAt = Integer.MIN_VALUE / 2;
+            }
+        }
+    }
+
+    private static Readout readoutAt(Level level, LocalPlayer player, RoomSnapshot snapshot) {
+        Vec3 center = player.getBoundingBox().getCenter();
+        SourceField field = SourceField.collect(level, center, Tuning.SCAN_RADIUS);
+        SourceField.Evaluation nearby = field.evaluate(level, center, player.getEyePosition());
+        HeldSources held = HeldSources.of(player);
+        float retention = snapshot.room.retention();
+        float nearbyHeat = nearby.heat() + held.radiantHeat();
+        float nearbyCold = nearby.cold() + held.radiantCold();
+        float roomHeat = snapshot.room.heatGain() + held.roomHeat() * retention;
+        float roomCold = snapshot.room.coldGain() + held.roomCold() * retention;
+        float total = HeatFalloff.capped(nearbyHeat + roomHeat) + HeatFalloff.capped(nearbyCold + roomCold);
+        return new Readout(nearbyHeat, nearbyCold, roomHeat, roomCold, total);
+    }
+}

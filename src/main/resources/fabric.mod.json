@@ -1,0 +1,21 @@
+{
+	"schemaVersion": 1,
+	"id": "inconvenient_temperature",
+	"version": "${version}",
+	"name": "Inconvenient Temperature",
+	"description": "Body temperature survival: biomes, heat and cold sources, a temperature bar in place of the XP bar, and wool armor.",
+	"authors": ["restonic4"],
+	"license": "MIT",
+	"environment": "*",
+	"entrypoints": {
+		"main": ["com.restonic4.inconvenienttemperature.InconvenientTemperature"],
+		"client": ["com.restonic4.inconvenienttemperature.client.InconvenientTemperatureClient"]
+	},
+	"mixins": ["inconvenient_temperature.mixins.json"],
+	"depends": {
+		"fabricloader": ">=0.16.0",
+		"minecraft": "1.21.1",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}
