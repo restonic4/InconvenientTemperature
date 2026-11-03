@@ -22,6 +22,48 @@ class CoreModelTest {
         return Integer.MAX_VALUE;
     }
 
+	@Test
+	void breakdownNamesEveryPartOfTheEnvironmentTarget() {
+		AmbientModel.Inputs rainyNight = new AmbientModel.Inputs(0f, false, true, true, 70f, 1f, 0f);
+
+		AmbientModel.Breakdown parts = AmbientModel.breakdown(rainyNight);
+
+		assertEquals(-64f, parts.biomeBase(), 0.001f);
+		assertEquals(-20f, parts.night(), 0.001f);
+		assertEquals(-12f, parts.rain(), 0.001f);
+		assertEquals(0f, parts.altitude(), 0.001f);
+		assertEquals(-96f, parts.total(), 0.001f);
+		assertEquals(AmbientModel.environmentTarget(rainyNight), parts.total(), 0.001f);
+	}
+
+	@Test
+	void breakdownScalesTheOutdoorValueByRoomAndDepth() {
+		AmbientModel.Inputs sealedCave = new AmbientModel.Inputs(0f, false, false, false, 10f, 0f, 0f);
+
+		AmbientModel.Breakdown parts = AmbientModel.breakdown(sealedCave);
+
+		assertEquals(Tuning.ROOM_AMBIENT_MIN, parts.roomFactor(), 0.001f);
+		assertEquals(parts.outdoor() * parts.roomFactor() * parts.depthFactor(), parts.total(), 0.001f);
+	}
+
+	@Test
+	void woolWarmthIsInsulationTimesWarmthPerInsulation() {
+		assertEquals(0.5f * WoolInsulation.warmthPerInsulation(-40f), WoolInsulation.warmth(0.5f, -40f), 0.001f);
+		assertEquals(Tuning.WOOL_WARMTH + Tuning.WOOL_COLD_BONUS, WoolInsulation.warmthPerInsulation(-40f), 0.001f);
+		assertEquals(Tuning.WOOL_WARMTH, WoolInsulation.warmthPerInsulation(10f), 0.001f);
+	}
+
+	@Test
+	void woolSpeedsUpWarmingButNotCooling() {
+		float warming = BodyTemperature.perSecond(-50f, -10f, 0f, 1f);
+		float warmingBare = BodyTemperature.perSecond(-50f, -10f, 0f, 0f);
+		float cooling = BodyTemperature.perSecond(0f, -40f, 0f, 1f);
+		float coolingBare = BodyTemperature.perSecond(0f, -40f, 0f, 0f);
+
+		assertEquals(warmingBare * BodyTemperature.heatingBonus(1f), warming, 0.001f);
+		assertEquals(coolingBare, cooling, 0.001f);
+	}
+
     @Test
     void plainsByDayIsComfortable() {
         assertEquals(0f, AmbientModel.environmentTarget(outdoors(0.8f, false, 70)), 0.001f);

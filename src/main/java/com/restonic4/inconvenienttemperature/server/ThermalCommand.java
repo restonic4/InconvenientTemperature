@@ -43,11 +43,11 @@ public final class ThermalCommand {
 
     private static int report(
         CommandContext<CommandSourceStack> context,
-        Function<ServerPlayer, List<String>> describe
+        Function<ServerPlayer, List<Component>> describe
     ) throws CommandSyntaxException {
         ServerPlayer player = context.getSource().getPlayerOrException();
-        for (String line : describe.apply(player)) {
-            context.getSource().sendSuccess(() -> Component.literal(line), false);
+        for (Component line : describe.apply(player)) {
+            context.getSource().sendSuccess(() -> line, false);
         }
 
         return 1;

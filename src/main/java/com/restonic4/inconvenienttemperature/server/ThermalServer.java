@@ -21,14 +21,17 @@ import com.restonic4.inconvenienttemperature.world.SourceField;
 import com.restonic4.inconvenienttemperature.core.RoomWorld;
 import com.restonic4.inconvenienttemperature.world.HeatSourceRegistry;
 import com.restonic4.inconvenienttemperature.world.LevelRoomWorld;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Stream;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -52,6 +55,7 @@ public final class ThermalServer {
     private static final EquipmentSlot[] ARMOR_SLOTS = {
         EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET
     };
+	private static final String[] SLOT_NAMES = {"Head", "Chest", "Legs", "Feet"};
     private static final ResourceLocation SLOW_ID = InconvenientTemperature.id("thermal_slowness");
     private static final float SYNC_THRESHOLD = 0.05f;
     private static final float SPEED_UPDATE_THRESHOLD = 0.005f;
@@ -63,6 +67,13 @@ public final class ThermalServer {
         final ItemStack[] lastStacks = new ItemStack[WoolInsulation.SLOTS];
         final int[] wearTicks = new int[WoolInsulation.SLOTS];
         float weatherTarget;
+        AmbientModel.Breakdown ambient = AmbientModel.breakdown(new AmbientModel.Inputs(0f, false, false, false, 0f, 1f, 0f));
+        float weather;
+        float woolWarmth;
+        float wetOffset;
+        float burning;
+        float heatRaw;
+        float coldRaw;
         float insulation;
         float sprintWarmth;
         float finalTarget;
@@ -152,14 +163,17 @@ public final class ThermalServer {
         HeldSources held = HeldSources.of(player);
         float retention = runtime.room.retention();
         runtime.held = held;
-        runtime.sourceDelta = HeatFalloff.capped(runtime.heatSum + burning + held.radiantHeat() + held.roomHeat() * retention)
-			+ HeatFalloff.capped(runtime.coldSum + held.radiantCold() + held.roomCold() * retention);
+        runtime.burning = burning;
+		runtime.heatRaw = runtime.heatSum + burning + held.radiantHeat() + held.roomHeat() * retention;
+		runtime.coldRaw = runtime.coldSum + held.radiantCold() + held.roomCold() * retention;
+		runtime.sourceDelta = HeatFalloff.capped(runtime.heatRaw) + HeatFalloff.capped(runtime.coldRaw);
 
         tickWetness(player, runtime);
 
-        float weather = runtime.weatherTarget
-                + WoolInsulation.warmth(insulation, runtime.weatherTarget)
-                + Wetness.temperatureOffset(runtime.wet.wetness(), runtime.weatherTarget);
+		runtime.woolWarmth = WoolInsulation.warmth(insulation, runtime.weatherTarget);
+		runtime.wetOffset = Wetness.temperatureOffset(runtime.wet.wetness(), runtime.weatherTarget);
+		float weather = runtime.weatherTarget + runtime.woolWarmth + runtime.wetOffset;
+		runtime.weather = weather;
         float sprintWarmth = Activity.sprintWarmth(weather + runtime.sourceDelta, player.isSprinting());
         runtime.insulation = insulation;
         runtime.sprintWarmth = sprintWarmth;
@@ -186,13 +200,14 @@ public final class ThermalServer {
 			runtime.room.openness(),
 			runtime.snowiness
 		);
-        return AmbientModel.environmentTarget(inputs);
+		runtime.ambient = AmbientModel.breakdown(inputs);
+		return runtime.ambient.total();
     }
 
-    public static List<String> describeBlock(ServerPlayer player) {
+    public static List<Component> describeBlock(ServerPlayer player) {
         HitResult hit = player.pick(6.0, 0f, false);
         if (hit.getType() != HitResult.Type.BLOCK) {
-            return List.of("Look at a block within 6 blocks.");
+            return List.of(Component.literal("Look at a block within 6 blocks."));
         }
         BlockPos target = ((BlockHitResult) hit).getBlockPos();
         ServerLevel level = player.serverLevel();
@@ -200,14 +215,14 @@ public final class ThermalServer {
         HeatSourceRegistry.Value value = HeatSourceRegistry.value(state);
         RoomWorld.Sample sample = new RoomWorld.Sample();
         new LevelRoomWorld(level).sample(target.getX(), target.getY(), target.getZ(), sample);
-        return List.of(
+		return Stream.of(
 			String.valueOf(state),
 			String.format(
 				"radiant strength %.1f  room power %.1f (%s)", value.strength(), value.roomPower(),
 				value.roomPower() == 0f ? "not a source" : "source"
 			),
 			"airflow: " + sample.cell
-		);
+		).<Component>map(Component::literal).toList();
     }
 
     private static Room analyzeRoom(ServerPlayer player) {
@@ -235,35 +250,29 @@ public final class ThermalServer {
         return BiomeBlend.blend(temperatures);
     }
 
-    public static List<String> describe(ServerPlayer player) {
-        PlayerRuntime r = runtimeFor(player);
-        float body = player.getAttachedOrElse(ModAttachments.BODY_TEMPERATURE, 0f);
-        return List.of(
-			String.format(
-				"body %.1f  final target %.1f  (weather %.1f + sources %.1f + sprint %.1f)",
-				body, r.finalTarget, r.weatherTarget, r.sourceDelta, r.sprintWarmth
-			),
-			String.format("biome %s  at feet %.2f  blended %.2f", r.biomeName, r.centerBiome, r.blendedBiome),
-			String.format(
-				"snowiness %.2f  wetness %.2f  wool %.2f  sprinting %s",
-				r.snowiness, r.wet.wetness(), r.insulation, player.isSprinting()
-			),
-			String.format(
-				"room: %d cells, openness %.2f (outlets %d, leaky %d, walls %d)%s",
-				r.room.cells(), r.room.openness(), r.room.openFaces(), r.room.leakyFaces(),
-				r.room.wallFaces(), r.room.truncated() ? " [search truncated]" : ""
-			),
-			String.format(
-				"heat: radiant +%.1f/%.1f  room power +%.1f/%.1f -> gain +%.1f/%.1f",
-				r.radiantHeat, r.radiantCold, r.room.heatPower(), r.room.coldPower(),
-				r.room.heatGain(), r.room.coldGain()
-			),
-			String.format(
-				"held: radiant +%.1f/%.1f  room power +%.1f/%.1f",
-				r.held.radiantHeat(), r.held.radiantCold(), r.held.roomHeat(), r.held.roomCold()
-			)
+	public static List<Component> describe(ServerPlayer player) {
+		return ThermalReport.build(snapshot(player));
+	}
+
+	private static ThermalSnapshot snapshot(ServerPlayer player) {
+		PlayerRuntime r = runtimeFor(player);
+		float[] warmup = player.getAttachedOrElse(ModAttachments.WOOL_WARMUP, WoolWarmup.EMPTY).toArray();
+		List<ThermalSnapshot.WoolPiece> wool = new ArrayList<>();
+		for (int i = 0; i < WoolInsulation.SLOTS; i++) {
+			ItemStack stack = player.getItemBySlot(ARMOR_SLOTS[i]);
+			String item = stack.getItem() instanceof WoolArmorItem ? stack.getHoverName().getString() : null;
+			wool.add(new ThermalSnapshot.WoolPiece(SLOT_NAMES[i], item, Tuning.WOOL_SLOT_WEIGHTS[i], warmup[i]));
+		}
+
+		return new ThermalSnapshot(
+			player.getAttachedOrElse(ModAttachments.BODY_TEMPERATURE, 0f), r.finalTarget, r.weather, r.ambient,
+			r.biomeName, r.centerBiome, r.blendedBiome, r.snowiness, (float) player.getEyeY(),
+			wool, r.insulation, r.woolWarmth,
+			r.wet.wetness(), Wetness.remainingTicks(r.wet.wetness(), r.weatherTarget + r.sourceDelta), r.wetOffset,
+			player.isSprinting(), r.sprintWarmth,
+			r.room, r.radiantHeat, r.radiantCold, r.burning, r.held, r.heatRaw, r.coldRaw, r.sourceDelta
 		);
-    }
+	}
 
     private static void tickWetness(ServerPlayer player, PlayerRuntime runtime) {
         boolean underRain = player.serverLevel().isRainingAt(BlockPos.containing(player.getEyePosition()));

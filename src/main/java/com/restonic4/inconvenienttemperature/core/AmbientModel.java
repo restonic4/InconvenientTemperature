@@ -15,25 +15,55 @@ public final class AmbientModel {
 
     private AmbientModel() {}
 
-    public static float environmentTarget(Inputs in) {
-        if (in.ultraWarmDimension()) return Tuning.ULTRAWARM_BASE;
+	public record Breakdown(
+		float biomeBase,
+		float snowShift,
+		float night,
+		float altitude,
+		float rain,
+		float outdoor,
+		float roomFactor,
+		float depthFactor,
+		boolean ultraWarm,
+		float total
+	) {}
 
-        float outdoor = climateBase(in) + timeOffset(in) + altitudeOffset(in);
-        if (in.raining()) {
-            outdoor += Tuning.RAIN_OFFSET;
-        }
-        return outdoor * insulation(in.openness()) * depth(in.eyeY());
-    }
+	public static float environmentTarget(Inputs in) {
+		return breakdown(in).total();
+	}
 
-    static float climateBase(Inputs in) {
-        float biome = clamp(in.biomeTemperature(), Tuning.BIOME_MIN, Tuning.BIOME_MAX);
-        float base = fromComfort(biome);
-        float snowy = fromComfort(Tuning.SNOWY_BIOME_TEMPERATURE);
-        if (base <= snowy) return base;
+	public static Breakdown breakdown(Inputs in) {
+		if (in.ultraWarmDimension()) {
+			return new Breakdown(0f, 0f, 0f, 0f, 0f, Tuning.ULTRAWARM_BASE, 1f, 1f, true, Tuning.ULTRAWARM_BASE);
+		}
 
-        float pull = clamp(in.snowiness(), 0f, 1f) * Tuning.SNOW_MAX_INFLUENCE;
-        return base - (base - snowy) * pull;
-    }
+		float biomeBase = biomeBase(in);
+		float snowShift = climateBase(in) - biomeBase;
+		float night = timeOffset(in);
+		float altitude = altitudeOffset(in);
+		float rain = in.raining() ? Tuning.RAIN_OFFSET : 0f;
+		float outdoor = biomeBase + snowShift + night + altitude + rain;
+		float roomFactor = insulation(in.openness());
+		float depthFactor = depth(in.eyeY());
+
+		return new Breakdown(
+			biomeBase, snowShift, night, altitude, rain, outdoor, roomFactor, depthFactor, false,
+			outdoor * roomFactor * depthFactor
+		);
+	}
+
+	private static float biomeBase(Inputs in) {
+		return fromComfort(clamp(in.biomeTemperature(), Tuning.BIOME_MIN, Tuning.BIOME_MAX));
+	}
+
+	static float climateBase(Inputs in) {
+		float base = biomeBase(in);
+		float snowy = fromComfort(Tuning.SNOWY_BIOME_TEMPERATURE);
+		if (base <= snowy) return base;
+
+		float pull = clamp(in.snowiness(), 0f, 1f) * Tuning.SNOW_MAX_INFLUENCE;
+		return base - (base - snowy) * pull;
+	}
 
     private static float fromComfort(float biomeTemperature) {
         float delta = biomeTemperature - Tuning.BIOME_COMFORT;

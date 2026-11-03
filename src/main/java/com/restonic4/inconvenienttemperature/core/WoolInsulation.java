@@ -20,8 +20,13 @@ public final class WoolInsulation {
         return total;
     }
 
-    public static float warmth(float insulation, float weatherTarget) {
-        float coldness = Math.max(0f, Math.min(1f, -weatherTarget / Tuning.WOOL_COLD_BONUS_FULL_AT));
-        return insulation * (Tuning.WOOL_WARMTH + Tuning.WOOL_COLD_BONUS * coldness);
-    }
+	public static float warmthPerInsulation(float weatherTarget) {
+		float coldness = Math.max(0f, Math.min(1f, -weatherTarget / Tuning.WOOL_COLD_BONUS_FULL_AT));
+
+		return Tuning.WOOL_WARMTH + Tuning.WOOL_COLD_BONUS * coldness;
+	}
+
+	public static float warmth(float insulation, float weatherTarget) {
+		return insulation * warmthPerInsulation(weatherTarget);
+	}
 }
