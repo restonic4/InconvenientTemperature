@@ -86,7 +86,7 @@ public final class Tuning {
     public static final float COLD_SOURCE_CAP = 150f;
     public static final float MIN_SIGNIFICANT_CONTRIBUTION = 0.25f;
 
-    public static final float WOOL_WARMTH = 45f;
+    public static final float WOOL_WARMTH = 65f;
     public static final float WOOL_COLD_BONUS = 10f;
     public static final float WOOL_COLD_BONUS_FULL_AT = 40f;
     public static final float HELD_SOURCE_DISTANCE = 0.6f;
