@@ -33,5 +33,4 @@ workspace/
 # macOS
 *.DS_Store
 
-# Agent-private notes
-*.private.md
+*.log
