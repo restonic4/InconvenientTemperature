@@ -50,7 +50,7 @@ class SourceDataTest {
 
     @Test
     void everyShippedEntryHasATargetAndFiniteNumbers() throws Exception {
-        for (String file : new String[] {"lava.json", "fire.json", "appliances.json", "cold.json"}) {
+        for (String file : new String[] {"lava.json", "fire.json", "appliances.json", "cold.json", "burnt.json"}) {
             try (InputStream in = SourceDataTest.class.getResourceAsStream(
                     "/data/inconvenient_temperature/heat_sources/" + file)) {
                 JsonObject root = JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject();
