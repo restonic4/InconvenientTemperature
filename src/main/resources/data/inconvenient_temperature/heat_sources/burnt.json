@@ -128,6 +128,24 @@
 			],
 			"strength": 10,
 			"room_power": 12
+		},
+		{
+			"blocks": [
+				"burnt:ember_campfire",
+				"burnt:ember_fence",
+				"burnt:ember_fence_gate",
+				"burnt:ember_hollow_log",
+				"burnt:ember_log",
+				"burnt:ember_planks",
+				"burnt:ember_slab",
+				"burnt:ember_stairs",
+				"burnt:ember_vertical_slab",
+				"burnt:ember_wall",
+				"burnt:ember_wood",
+				"burnt:stripped_ember_log"
+			],
+			"strength": 4,
+			"room_power": 5
 		}
 	]
 }
